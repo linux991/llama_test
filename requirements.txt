@@ -1,0 +1,17 @@
+pandas
+numpy
+scipy
+scikit-learn
+matplotlib
+tqdm
+datasets
+transformers
+accelerate
+peft
+trl
+bitsandbytes
+sentencepiece
+evaluate
+huggingface_hub
+jupyter
+ipykernel

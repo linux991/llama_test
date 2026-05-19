@@ -3,9 +3,20 @@
 
 ## Что делает notebook
 
-Notebook повторяет основную логику статьи *When Detection Fails: The Power of Fine-Tuned Models to Generate Human-Like Social Media Text*, но переносит её с коротких соцсетевых постов на хоррор-истории.
+Notebook повторяет основную логику статьи *When Detection Fails: The Power of Fine-Tuned Models to Generate Human-Like Social Media Text*, но переносит её с коротких соцсетевых постов на англоязычные хоррор-истории.
 
-Оригинальный эксперимент строился так: авторы собирали человеческие тексты, генерировали AI-тексты разными стратегиями, дообучали модели через QLoRA, сравнивали human/base/fine-tuned тексты и проверяли, насколько хорошо детекторы отличают AI-текст от человеческого. В статье использовались GPT-4o, GPT-4o-mini, Llama-3-8B-Instruct и Llama-3.2-1B-Instruct; для Llama применялись QLoRA, 4-bit quantization, LoRA rank 64, alpha 16 и 5 эпох обучения. В notebook эта схема адаптирована под хоррор.
+Оригинальный эксперимент строился так: авторы собирали человеческие тексты, генерировали AI-тексты разными стратегиями, дообучали модели через QLoRA, сравнивали human/base/fine-tuned тексты и проверяли, насколько хорошо детекторы отличают AI-текст от человеческого. В статье использовались GPT-4o, GPT-4o-mini, Llama-3-8B-Instruct и Llama-3.2-1B-Instruct; для Llama применялись QLoRA, 4-bit quantization, LoRA rank 64, alpha 16 и 5 эпох обучения. В notebook эта схема адаптирована под horror corpus и фиксируется на `Meta-Llama-3-8B-Instruct`.
+
+## Что именно берём из статьи
+
+Для нашей репликации оставляем не всю статью, а её ключевой дизайн:
+
+- human-written corpus: вместо Twitter/X берём англоязычные creepypasta/horror stories;
+- generation strategy: используем аналог `Generate From Topic`, то есть сначала делаем краткое описание фрагмента, затем просим модель написать новый horror fragment по описанию;
+- base condition: генерируем тексты базовой `Meta-Llama-3-8B-Instruct`;
+- fine-tuned condition: дообучаем ту же Llama 3 8B через QLoRA и снова генерируем по тем же описаниям;
+- comparison: считаем стилометрию и обучаем supervised detector для `human vs base AI` и `human vs fine-tuned AI`;
+- главный ожидаемый эффект: fine-tuned AI должен быть ближе к human по признакам и труднее для детектора.
 
 ## Что тебе нужно подготовить
 
@@ -24,6 +35,48 @@ horror_texts.zip
 └── story_004.txt
 ```
 
+## Если используешь Kaggle-датасет 3500 Popular Creepypastas
+
+Для датасета `thomaskonstantin/3500-popular-creepypastas` добавлен отдельный скрипт:
+
+```bash
+python3 scripts/extract_creepypastas.py \
+  --input creepypastas.xlsx \
+  --output-dir data/creepypasta_stories_txt \
+  --overwrite
+```
+
+Что делает скрипт:
+
+- принимает Kaggle ZIP, распакованную папку или отдельный XLSX/CSV/JSON/TXT;
+- автоматически ищет колонку с текстом истории;
+- чистит HTML и лишние пробелы;
+- удаляет пустые, слишком короткие и дублирующиеся записи;
+- сохраняет каждую историю отдельным `.txt` файлом;
+- создаёт `metadata.csv` со списком извлечённых историй.
+
+После запуска получится папка:
+
+```text
+data/creepypasta_stories_txt/
+├── 0001_story_title.txt
+├── 0002_another_story.txt
+└── metadata.csv
+```
+
+Если скрипт не угадал колонку с текстом, укажи её явно:
+
+```bash
+python3 scripts/extract_creepypastas.py \
+  --input creepypastas.xlsx \
+  --text-column body \
+  --title-column story_name \
+  --output-dir data/creepypasta_stories_txt \
+  --overwrite
+```
+
+Эта папка лежит внутри `data/`, поэтому не попадёт в git. Для Colab её можно заархивировать и загрузить как обычный `horror_texts.zip`.
+
 ## Как запустить
 
 1. Открой Google Colab.
@@ -37,21 +90,28 @@ horror_texts.zip
 
 Главный блок называется `CONFIG`.
 
-Для первого запуска оставь почти всё как есть:
+Эксперимент теперь зафиксирован как English-only + Llama 3 8B:
 
 ```python
-"LANGUAGE": "ru"
-"GEN_MODEL_NAME": "Qwen/Qwen2.5-1.5B-Instruct"
-"MAX_HUMAN_SAMPLES": 300
-"NUM_EPOCHS": 2
-```
-
-Когда проверишь, что всё работает, можно усилить эксперимент:
-
-```python
+"LANGUAGE": "en"
+"GEN_MODEL_NAME": "meta-llama/Meta-Llama-3-8B-Instruct"
+"DETECTOR_MODEL_NAME": "openai-community/roberta-base-openai-detector"
 "MAX_HUMAN_SAMPLES": 1000
 "NUM_EPOCHS": 5
 ```
+
+Для smoke test можно временно ослабить запуск:
+
+```python
+"MAX_HUMAN_SAMPLES": 200
+"NUM_EPOCHS": 1
+```
+
+Для Llama 3 8B нужен Hugging Face доступ:
+
+1. Открой страницу `meta-llama/Meta-Llama-3-8B-Instruct` на Hugging Face.
+2. Прими лицензию Meta.
+3. В Colab добавь `HF_TOKEN` в secrets или запусти ячейку `notebook_login()`.
 
 ## Что происходит по шагам
 
@@ -223,7 +283,7 @@ human vs fine-tuned AI    accuracy = 0.70
 Отличия:
 - вместо Twitter/X используются художественные хоррор-фрагменты;
 - вместо политических topic/stance используется horror description;
-- off-the-shelf детекторы для русского художественного текста ненадёжны;
+- off-the-shelf детекторы для художественного horror-домена ненадёжны;
 - основной детектор обучается внутри эксперимента;
 - качество зависит от лицензий, объёма и чистоты корпуса.
 
@@ -244,11 +304,7 @@ human vs fine-tuned AI    accuracy = 0.70
 
 ### Ошибка с Llama access
 
-Llama-модели могут требовать принятия лицензии на Hugging Face. Проще использовать:
-
-```python
-"GEN_MODEL_NAME": "Qwen/Qwen2.5-1.5B-Instruct"
-```
+Llama-модели требуют принятия лицензии на Hugging Face. Для текущего эксперимента не заменяй модель на Qwen: нужно принять лицензию `meta-llama/Meta-Llama-3-8B-Instruct` и авторизоваться через `HF_TOKEN` или `notebook_login()`.
 
 ### Генерации слишком короткие или плохие
 

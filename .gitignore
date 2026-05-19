@@ -1,5 +1,7 @@
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
 # Python
 __pycache__/
@@ -8,17 +10,19 @@ __pycache__/
 
 # Virtual environments
 .venv/
+.venv-*/
 venv/
 env/
 ENV/
 
 # Jupyter
-.ipynb_checkpoints/
+**/.ipynb_checkpoints/
 
 # Environment variables and local config
 .env
 .env.*
 !.env.example
+.python-version
 
 # Build and packaging
 build/
@@ -31,11 +35,32 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+.cache/
+.nox/
+.tox/
 
 # Logs
 *.log
 
+# Local notebooks and editor state
+.vscode/
+.idea/
+
+# Hugging Face / ML caches and auth
+.huggingface/
+.hf/
+hf_cache/
+transformers_cache/
+
 # Large local experiment artifacts
+2506.09975v2.pdf
+creepypastas.xlsx
+*.xlsx
+*.xls
+*.csv
+*.tsv
+*.zip
+!requirements.txt
 data/
 datasets/
 outputs/
