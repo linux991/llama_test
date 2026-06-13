@@ -62,11 +62,25 @@ def sentence_count(text: str) -> int:
 
 
 def repetition_score(tokens: list[str]) -> float:
-    if not tokens:
+    """Return the proportion of repeated bigram occurrences.
+
+    A higher value means that the text repeats the same two-word
+    sequences more often.
+    """
+
+    if len(tokens) < 2:
         return 0.0
-    counts = Counter(tokens)
-    repeated = sum(count - 1 for count in counts.values() if count > 1)
-    return repeated / len(tokens)
+
+    bigrams = list(zip(tokens, tokens[1:]))
+    counts = Counter(bigrams)
+
+    repeated_occurrences = sum(
+        count - 1
+        for count in counts.values()
+        if count > 1
+    )
+
+    return repeated_occurrences / len(bigrams)
 
 
 def count_cliches(text: str, language: str) -> int:
