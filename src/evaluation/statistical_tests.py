@@ -28,6 +28,140 @@ def mann_whitney_p_value(x_values: list[float], y_values: list[float]) -> float:
     except Exception:
         return float("nan")
 
+def wilcoxon_p_value(
+    x_values: list[float],
+    y_values: list[float],
+) -> float:
+    """Return a two-sided Wilcoxon signed-rank p-value.
+
+    The two input lists must contain paired measurements in the
+    same order. A result below 0.05 indicates a statistically
+    significant difference between the paired conditions.
+    """
+
+    if len(x_values) != len(y_values):
+        raise ValueError(
+            "Wilcoxon test requires paired lists "
+            "of equal length."
+        )
+
+    if not x_values:
+        return float("nan")
+
+    differences = [
+        x_value - y_value
+        for x_value, y_value in zip(
+            x_values,
+            y_values,
+        )
+    ]
+
+    # Scipy raises an exception when every paired difference
+    # is exactly zero. In that case the conditions are identical.
+    if all(
+        math.isclose(
+            difference,
+            0.0,
+            abs_tol=1e-12,
+        )
+        for difference in differences
+    ):
+        return 1.0
+
+    try:
+        from scipy.stats import wilcoxon
+
+        result = wilcoxon(
+            x_values,
+            y_values,
+            alternative="two-sided",
+            zero_method="wilcox",
+        )
+
+        return float(result.pvalue)
+
+    except Exception:
+        return float("nan")
+
+
+def paired_rank_biserial(
+    x_values: list[float],
+    y_values: list[float],
+) -> float:
+    """Calculate paired rank-biserial effect size.
+
+    Positive values mean that the first condition tends to have
+    higher values. Negative values mean that the second condition
+    tends to have higher values. Values near zero indicate a weak
+    effect, while values near -1 or 1 indicate a strong effect.
+    """
+
+    if len(x_values) != len(y_values):
+        raise ValueError(
+            "Paired effect size requires lists "
+            "of equal length."
+        )
+
+    differences = [
+        x_value - y_value
+        for x_value, y_value in zip(
+            x_values,
+            y_values,
+        )
+        if not math.isclose(
+            x_value - y_value,
+            0.0,
+            abs_tol=1e-12,
+        )
+    ]
+
+    if not differences:
+        return 0.0
+
+    try:
+        from scipy.stats import rankdata
+
+        ranks = rankdata(
+            [abs(value) for value in differences],
+            method="average",
+        )
+
+        positive_rank_sum = sum(
+            rank
+            for difference, rank in zip(
+                differences,
+                ranks,
+            )
+            if difference > 0
+        )
+
+        negative_rank_sum = sum(
+            rank
+            for difference, rank in zip(
+                differences,
+                ranks,
+            )
+            if difference < 0
+        )
+
+        total_rank_sum = (
+            positive_rank_sum
+            + negative_rank_sum
+        )
+
+        if total_rank_sum == 0:
+            return 0.0
+
+        return float(
+            (
+                positive_rank_sum
+                - negative_rank_sum
+            )
+            / total_rank_sum
+        )
+
+    except Exception:
+        return float("nan")
 
 def mean(values: Iterable[float]) -> float:
     values = list(values)
